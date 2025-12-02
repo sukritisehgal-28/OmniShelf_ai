@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY frontend_react/package*.json ./
+
+# Install dependencies (allow dev to run Vite server)
+RUN npm ci --legacy-peer-deps
+
+# Copy frontend source
+COPY frontend_react/ ./
+
+EXPOSE 3002
+
+# Use Vite dev server so env vars can be injected at runtime (VITE_API_BASE_URL)
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3002"]
