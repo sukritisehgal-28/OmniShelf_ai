@@ -8,3 +8,6 @@ virtual/
 environment/
 node_modules/
 yolo/runs/
+# Local Colab artifacts
+omnishelf_colab/
+omnishelf_colab.zip
