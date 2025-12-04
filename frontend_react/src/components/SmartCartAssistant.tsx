@@ -1,28 +1,51 @@
 import { useState } from "react";
-import { SmartCartNav } from "./SmartCartNav";
+import { useNavigate } from "react-router-dom";
 import { SmartCartSteps } from "./SmartCartSteps";
 import { ShoppingListInput } from "./ShoppingListInput";
 import { SmartCartResults } from "./SmartCartResults";
-import { RouteSummary } from "./RouteSummary";
 import { ShoppingCart } from "lucide-react";
+import { searchShoppingList, ShoppingListResult } from "../services/api";
 
 interface SmartCartAssistantProps {
   onNavigate: (page: string) => void;
 }
 
 export function SmartCartAssistant({ onNavigate }: SmartCartAssistantProps) {
+  const navigate = useNavigate();
   const [hasSearched, setHasSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<ShoppingListResult[]>([]);
 
-  const handleSearch = (list: string) => {
-    console.log("Searching for:", list);
-    setHasSearched(true);
+  const handleSearch = async (list: string, inStockOnly: boolean) => {
+    const items = list
+      .split(/[\r\n,]/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    if (!items.length) {
+      setError("No items written! Please enter your list/item.");
+      setHasSearched(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await searchShoppingList(items);
+      const filtered = inStockOnly
+        ? data.filter((r) => r.found && (r.stock_count ?? 0) > 0)
+        : data;
+      setResults(filtered);
+      setHasSearched(true);
+    } catch (err: any) {
+      setError(err?.message || "Failed to fetch SmartCart results");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-[#f9fafb]" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-      {/* Top Navigation */}
-      <SmartCartNav onNavigate={onNavigate} />
-
       {/* Main Content */}
       <main className="max-w-[1400px] mx-auto px-8 py-12">
         {/* Header Area */}
@@ -43,23 +66,40 @@ export function SmartCartAssistant({ onNavigate }: SmartCartAssistantProps) {
         {/* Step-by-Step Helper */}
         <SmartCartSteps />
 
+        {error && (
+          <div className="max-w-[800px] mx-auto mb-6 bg-red-50 border border-red-200 text-red-700 text-[14px] rounded-xl px-4 py-3">
+            {error}
+          </div>
+        )}
+
         {/* Shopping List Input */}
         <div className="mb-8">
-          <ShoppingListInput onSearch={handleSearch} />
+          <ShoppingListInput
+            onSearch={handleSearch}
+            onEmpty={() => {
+              setError("No items written! Please enter your list/item.");
+              setHasSearched(false);
+            }}
+          />
         </div>
 
         {/* Results Area */}
-        <SmartCartResults hasSearched={hasSearched} />
-
-        {/* Route Summary */}
-        <RouteSummary hasSearched={hasSearched} />
+        <SmartCartResults
+          hasSearched={hasSearched}
+          loading={loading}
+          error={error}
+          results={results}
+        />
 
         {/* Footer */}
         <footer className="mt-16 pt-8 border-t border-[#e5e7eb] text-center">
           <p className="text-[13px] text-[#6b7280]">
             Need help? Ask a store associate.{" "}
             <button 
-              onClick={() => onNavigate("home")} 
+              onClick={() => {
+                onNavigate("home");
+                navigate("/");
+              }} 
               className="text-[#3498db] hover:text-[#2980b9] transition-colors underline"
             >
               Back to Main

@@ -1,11 +1,14 @@
+import { useNavigate } from "react-router-dom";
 import { Briefcase, ShoppingCart, ArrowRight } from "lucide-react";
 import { Button } from "./ui/button";
 
 interface LoginSectionProps {
-  onNavigate: (page: string) => void;
+  onNavigate?: (page: string) => void;
 }
 
 export function LoginSection({ onNavigate }: LoginSectionProps) {
+  const navigate = useNavigate();
+
   return (
     <section className="w-full bg-[#f8f9fa] px-8 py-20">
       <div className="max-w-[1440px] mx-auto">
@@ -37,7 +40,10 @@ export function LoginSection({ onNavigate }: LoginSectionProps) {
             </div>
             <div className="space-y-4 mb-6">
               <Button 
-                onClick={() => onNavigate("admin")}
+                onClick={() => {
+                  onNavigate?.("admin");
+                  navigate("/admin/dashboard");
+                }}
                 className="w-full bg-[#3498db] text-white hover:bg-[#2980b9] h-12 rounded-lg flex items-center justify-center gap-2"
               >
                 Go to Admin Dashboard
@@ -89,7 +95,10 @@ export function LoginSection({ onNavigate }: LoginSectionProps) {
             </div>
             <div className="space-y-4 mb-6">
               <Button 
-                onClick={() => onNavigate("smartcart")}
+                onClick={() => {
+                  onNavigate?.("smartcart");
+                  navigate("/user/smartcart");
+                }}
                 className="w-full bg-[#22c55e] text-white hover:bg-[#16a34a] h-14 rounded-lg text-[16px] flex items-center justify-center gap-2"
               >
                 Open SmartCart Assistant
@@ -99,6 +108,14 @@ export function LoginSection({ onNavigate }: LoginSectionProps) {
               <p className="text-[13px] text-center text-[#6b7280]">
                 No account needed – start shopping immediately
               </p>
+            </div>
+            <div className="text-center mt-4">
+              <button
+                onClick={() => navigate("/admin/ai-model")}
+                className="text-[13px] text-[#3498db] hover:underline"
+              >
+                View full AI metrics →
+              </button>
             </div>
           </div>
         </div>

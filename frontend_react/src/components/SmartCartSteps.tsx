@@ -1,18 +1,18 @@
-import { ClipboardList, Database, MapPin } from "lucide-react";
+import { ClipboardList, Search, CheckCircle } from "lucide-react";
 
 export function SmartCartSteps() {
   const steps = [
     {
       icon: ClipboardList,
-      text: "Paste your list"
+      text: "Paste your list (comma or new line)"
     },
     {
-      icon: Database,
-      text: "We check live stock"
+      icon: Search,
+      text: "We look up your items in store"
     },
     {
-      icon: MapPin,
-      text: "Follow your route"
+      icon: CheckCircle,
+      text: "See quantity, price, and shelf"
     }
   ];
 

@@ -1,11 +1,13 @@
+import { useNavigate } from "react-router-dom";
 import { Shield, ShoppingCart, ArrowRight } from "lucide-react";
 import { Button } from "./ui/button";
 
 interface RoleCardsSectionProps {
-  onNavigate: (page: string) => void;
+  onNavigate?: (page: string) => void;
 }
 
 export function RoleCardsSection({ onNavigate }: RoleCardsSectionProps) {
+  const navigate = useNavigate();
   return (
     <section className="py-20 bg-gradient-to-br from-[#f8fafc] to-[#f1f5f9]">
       <div className="max-w-[1400px] mx-auto px-8">
@@ -67,7 +69,10 @@ export function RoleCardsSection({ onNavigate }: RoleCardsSectionProps) {
             </ul>
             
             <Button
-              onClick={() => onNavigate("admin")}
+              onClick={() => {
+                onNavigate?.("admin");
+                navigate("/admin/dashboard");
+              }}
               className="w-full bg-[#3498db] hover:bg-[#2980b9] text-white py-6 rounded-xl text-[16px] shadow-md hover:shadow-lg transition-all gap-2"
               style={{ fontWeight: 600 }}
             >
@@ -119,7 +124,10 @@ export function RoleCardsSection({ onNavigate }: RoleCardsSectionProps) {
             </ul>
             
             <Button
-              onClick={() => onNavigate("smartcart")}
+              onClick={() => {
+                onNavigate?.("smartcart");
+                navigate("/user/smartcart");
+              }}
               className="w-full bg-[#10b981] hover:bg-[#059669] text-white py-6 rounded-xl text-[16px] shadow-md hover:shadow-lg transition-all gap-2"
               style={{ fontWeight: 600 }}
             >

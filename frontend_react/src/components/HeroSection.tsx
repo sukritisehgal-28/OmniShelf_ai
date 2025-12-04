@@ -1,11 +1,14 @@
+import { useNavigate } from "react-router-dom";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { Button } from "./ui/button";
 
 interface HeroSectionProps {
-  onNavigate?: (page: string) => void;
+  onNavigate?: (page: string) => void; // kept for compatibility
 }
 
 export function HeroSection({ onNavigate }: HeroSectionProps) {
+  const navigate = useNavigate();
+
   return (
     <section className="w-full bg-gradient-to-br from-[#e3f2fd] via-white to-[#f5f5f5] px-8 py-20">
       <div className="max-w-[1440px] mx-auto grid grid-cols-2 gap-16 items-center">
@@ -26,13 +29,19 @@ export function HeroSection({ onNavigate }: HeroSectionProps) {
 
           <div className="flex items-center gap-4">
             <Button
-              onClick={() => onNavigate?.("admin")}
+              onClick={() => {
+                onNavigate?.("admin");
+                navigate("/admin/dashboard");
+              }}
               className="bg-[#3498db] text-white hover:bg-[#2980b9] px-8 h-12 rounded-lg"
             >
               Get Started
             </Button>
             <Button
-              onClick={() => onNavigate?.("smartcart")}
+              onClick={() => {
+                onNavigate?.("smartcart");
+                navigate("/user/smartcart");
+              }}
               variant="outline"
               className="border-[#3498db] text-[#3498db] hover:bg-[#3498db]/10 px-8 h-12 rounded-lg"
             >

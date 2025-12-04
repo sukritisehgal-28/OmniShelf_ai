@@ -219,7 +219,7 @@ export interface ShoppingListResult {
 }
 
 export async function searchShoppingList(
-  items: ShoppingListItem[]
+  items: string[]
 ): Promise<ShoppingListResult[]> {
   const response = await fetch(`${API_BASE_URL}/smartcart/search`, {
     method: "POST",

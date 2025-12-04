@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { detectFromCsv, CsvDetectionSummary, fetchModelMetrics } from "../services/api";
+import { useState } from "react";
+import { detectFromCsv, CsvDetectionSummary } from "../services/api";
 import { Button } from "./ui/button";
 import { Upload } from "lucide-react";
 import { prettyProductName } from "../utils/product";
@@ -9,21 +9,6 @@ export function RealTimeDetectionUpload() {
   const [summary, setSummary] = useState<CsvDetectionSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [modelLabel, setModelLabel] = useState("YOLO model");
-
-  useEffect(() => {
-    fetchModelMetrics()
-      .then((m) => {
-        if (m?.run_name) {
-          setModelLabel(`YOLOv11s (${m.run_name})`);
-        } else if (m?.model_exists) {
-          setModelLabel("YOLOv11s (loaded)");
-        } else {
-          setModelLabel("YOLO model missing");
-        }
-      })
-      .catch(() => setModelLabel("YOLO model"));
-  }, []);
 
   const handleUpload = async () => {
     if (!file) return;
@@ -53,7 +38,7 @@ export function RealTimeDetectionUpload() {
           <p className="text-[12px] text-[#6b7280] mt-1">CSV must have column: <code className="bg-[#f1f5f9] px-1.5 py-0.5 rounded text-[#d97706]">image_path</code> with <strong>absolute paths</strong></p>
         </div>
         <div className="bg-[#ecf2ff] text-[#1f2937] px-3 py-1 rounded-full text-[12px]" style={{ fontWeight: 700 }}>
-          Model: {modelLabel}
+          Model: YOLOv11s (train_colab)
         </div>
       </div>
 

@@ -5,10 +5,11 @@ import { Button } from "./ui/button";
 import { Switch } from "./ui/switch";
 
 interface ShoppingListInputProps {
-  onSearch: (list: string) => void;
+  onSearch: (list: string, inStockOnly: boolean) => void;
+  onEmpty?: () => void;
 }
 
-export function ShoppingListInput({ onSearch }: ShoppingListInputProps) {
+export function ShoppingListInput({ onSearch, onEmpty }: ShoppingListInputProps) {
   const [shoppingList, setShoppingList] = useState("");
   const [inStockOnly, setInStockOnly] = useState(false);
 
@@ -18,7 +19,9 @@ export function ShoppingListInput({ onSearch }: ShoppingListInputProps) {
 
   const handleFind = () => {
     if (shoppingList.trim()) {
-      onSearch(shoppingList);
+      onSearch(shoppingList, inStockOnly);
+    } else {
+      onEmpty?.();
     }
   };
 
