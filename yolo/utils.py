@@ -7,6 +7,22 @@ from typing import Iterable, List, Dict, Any, Union
 import numpy as np
 from ultralytics import YOLO
 
+# Import product name mapping for human-readable names
+try:
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from product_mapping import PRODUCT_NAME_MAP
+except ImportError:
+    PRODUCT_NAME_MAP = {}
+
+
+def get_readable_product_name(raw_name: str) -> str:
+    """Convert raw grozi class name to human-readable product name."""
+    if raw_name in PRODUCT_NAME_MAP:
+        return PRODUCT_NAME_MAP[raw_name]
+    # Fallback: clean up the raw name
+    return raw_name.replace("_", " ").title()
+
 
 def load_model(weights_path: Union[str, Path]) -> YOLO:
     """Load a YOLO model from disk."""
@@ -42,9 +58,15 @@ def yolo_result_to_detections(result: Any) -> List[Dict[str, Any]]:
 
     for idx, cls_id in enumerate(classes):
         bbox = xyxy[idx].tolist()
+        # Get raw class name from model (e.g., "grozi_42")
+        raw_name = names.get(cls_id, str(cls_id))
+        # Convert to human-readable name (e.g., "Quaker Old Fashioned Oats")
+        readable_name = get_readable_product_name(raw_name)
+        
         detections.append(
             {
-                "product_name": names.get(cls_id, str(cls_id)),
+                "product_name": readable_name,
+                "raw_class": raw_name,  # Keep raw class for debugging
                 "confidence": float(confs[idx]),
                 "bbox": [float(coord) for coord in bbox],
             }

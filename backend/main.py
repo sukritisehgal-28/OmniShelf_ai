@@ -32,6 +32,15 @@ except ImportError as e:  # pragma: no cover - only hit in minimal/container bui
     YOLO_AVAILABLE = False
     load_model = run_inference = yolo_result_to_detections = None
 
+# Try to load two-stage detector
+try:
+    from yolo.sku_grozi_detector import TwoStageShelfDetector
+    TWO_STAGE_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Two-stage detector not available ({e})")
+    TWO_STAGE_AVAILABLE = False
+    TwoStageShelfDetector = None
+
 # Create tables if they don't exist
 db_models.Base.metadata.create_all(bind=engine)
 
@@ -47,6 +56,16 @@ if YOLO_AVAILABLE:
         yolo_model = None
 else:
     yolo_model = None
+
+# Initialize two-stage detector
+two_stage_detector = None
+if TWO_STAGE_AVAILABLE:
+    try:
+        two_stage_detector = TwoStageShelfDetector()
+        print("✅ Two-stage detector initialized!")
+    except Exception as e:
+        print(f"Warning: Could not initialize two-stage detector: {e}")
+        two_stage_detector = None
 
 app.add_middleware(
     CORSMiddleware,
@@ -490,9 +509,15 @@ def health_check():
     }
 
 
+# Minimum confidence threshold for reliable detections
+MIN_CONFIDENCE_THRESHOLD = 0.50  # 50% - filter out low-confidence guesses
+# IoU threshold for Non-Maximum Suppression (lower = stricter, removes more overlaps)
+NMS_IOU_THRESHOLD = 0.3  # 30% overlap threshold
+
+
 @app.post("/predict")
 async def predict_image(file: UploadFile = File(...)):
-    """Run inference on an uploaded image."""
+    """Run inference on an uploaded image using single-stage Grozi model."""
     if not YOLO_AVAILABLE or not yolo_model:
         raise HTTPException(status_code=503, detail="YOLO model not available")
     
@@ -501,9 +526,120 @@ async def predict_image(file: UploadFile = File(...)):
         tmp_path = Path(tmp.name)
         
     try:
-        result = run_inference(tmp_path, yolo_model)
+        # Run inference with confidence threshold and class-agnostic NMS
+        result = run_inference(
+            tmp_path, 
+            yolo_model, 
+            conf=MIN_CONFIDENCE_THRESHOLD,
+            iou=NMS_IOU_THRESHOLD,
+            agnostic_nms=True  # Apply NMS across all classes to remove overlapping boxes
+        )
         detections = yolo_result_to_detections(result)
         return {"detections": detections}
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+
+@app.post("/predict/shelf")
+async def predict_shelf_image(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """
+    Two-stage shelf detection:
+    Stage 1: SKU-110K finds all products on shelf
+    Stage 2: Grozi-120 identifies each product
+    
+    Also updates inventory in database.
+    """
+    if not two_stage_detector:
+        raise HTTPException(status_code=503, detail="Two-stage detector not available")
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = Path(tmp.name)
+    
+    try:
+        # Run two-stage detection
+        result = two_stage_detector.detect(str(tmp_path))
+        
+        # Update inventory based on detections
+        product_counts = result.get("product_counts", {})
+        detections_for_db = []
+        
+        for det in result.get("detections", []):
+            if det.get("class_name") and det["class_name"] != "unknown":
+                grozi_code = det["class_name"]
+                bbox = det.get("bbox", {})
+                
+                detections_for_db.append(schemas.DetectionCreate(
+                    product_name=grozi_code,
+                    confidence=det.get("confidence", 0),
+                    bbox_x1=bbox.get("x1", 0),
+                    bbox_y1=bbox.get("y1", 0),
+                    bbox_x2=bbox.get("x2", 0),
+                    bbox_y2=bbox.get("y2", 0),
+                    shelf_id="shelf_scan",
+                ))
+        
+        # Bulk create detections
+        if detections_for_db:
+            crud.bulk_create_detections(db, detections_for_db)
+        
+        return {
+            "total_products_found": result.get("total_products_found", 0),
+            "products_identified": result.get("products_identified", 0),
+            "product_counts": product_counts,
+            "detections": result.get("detections", []),
+            "image_size": result.get("image_size", {}),
+        }
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+
+@app.post("/predict/product")
+async def predict_single_product(file: UploadFile = File(...)):
+    """
+    Visual Search: Customer uploads a product image, model identifies it.
+    Uses only Grozi-120 (single product, not shelf).
+    """
+    if not YOLO_AVAILABLE or not yolo_model:
+        raise HTTPException(status_code=503, detail="YOLO model not available")
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = Path(tmp.name)
+    
+    try:
+        # Run inference
+        result = run_inference(
+            tmp_path, 
+            yolo_model, 
+            conf=0.3,  # Lower threshold for single product
+            iou=0.5
+        )
+        detections = yolo_result_to_detections(result)
+        
+        if not detections:
+            return {
+                "found": False,
+                "message": "Could not identify the product. Try a clearer image.",
+                "product": None
+            }
+        
+        # Get best detection
+        best = max(detections, key=lambda d: d.get("confidence", 0))
+        grozi_code = best.get("class_name", "")
+        
+        return {
+            "found": True,
+            "product": {
+                "product_name": grozi_code,
+                "display_name": get_display_name(grozi_code),
+                "category": get_category(grozi_code),
+                "price": get_price(grozi_code),
+                "confidence": best.get("confidence", 0),
+            }
+        }
     finally:
         if tmp_path.exists():
             tmp_path.unlink()

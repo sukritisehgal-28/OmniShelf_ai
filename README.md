@@ -1,137 +1,129 @@
 # OmniShelf AI
 
-OmniShelf AI is an end-to-end retail shelf intelligence platform that combines YOLOv11 computer vision, a FastAPI backend with PostgreSQL persistence, and a Streamlit dashboard to deliver actionable shelf stock insights and a smart shopping assistant.
+**OmniShelf AI** is an end-to-end retail shelf intelligence platform powered by a custom-trained **YOLOv11** model. It automates inventory tracking, detects out-of-stock items in real-time, and provides a smart shopping assistant for customers.
 
-## Key Capabilities
-- Train YOLOv11 on the Grozi-120 dataset to recognize packaged grocery products.
-- Evaluate generalization on real-world supermarket shelf imagery from the Supermarket Shelves (Humans in the Loop) dataset.
-- Persist detections, counts, and planogram expectations to PostgreSQL.
-- Expose REST APIs for stock lookups, shelf summaries, and shopping list recommendations.
-- Provide a Streamlit-based Store Dashboard and SmartCart Assistant for managers and customers.
+![Project Status](https://img.shields.io/badge/Status-Completed-success)
+![Model Performance](https://img.shields.io/badge/mAP%4050-95.5%25-blue)
+![Tech Stack](https://img.shields.io/badge/Stack-FastAPI%20%7C%20React%20%7C%20PostgreSQL%20%7C%20YOLOv11-orange)
 
-## Architecture Overview
-1. **YOLOv11 Training:** `python yolo/train_yolo.py` uses Ultralytics to fine-tune pretrained weights on Grozi-120 (images + YOLO labels).
-2. **Real Shelf Evaluation:** `python yolo/evaluate_real_shelves.py` loads the trained model and runs inference on real shelf images to produce qualitative statistics (baseline + stress-test augmentations).
-3. **Backend:** FastAPI app backed by PostgreSQL (SQLAlchemy ORM) exposes detection ingestion, stock queries, shelf summaries, and shopping list intelligence.
-4. **Frontend:** Streamlit UI (`frontend/`) calls the FastAPI APIs to display analytics and assist customers. The previous React app is preserved in `frontend_react/` for reference.
+---
 
-## Setup Instructions
-1. **Create Environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
-2. **Configure PostgreSQL (default database)**
-   - Create a `.env` file in the project root with:
-     ```
-     DATABASE_URL=postgresql://sukritisehgal@localhost:5434/omnishelf
-     ```
-   - Ensure PostgreSQL is running locally and the `omnishelf` database exists (`createdb omnishelf` or run `python init_postgres.py`).
+## 🚀 Key Features
 
-3. **Prepare Datasets**
-   - **Grozi-120:** Download the official Grozi-120 “in vitro” archive (120 folders). Place the extracted directories under `yolo/dataset/grozi120/inVitro/` (already created here), then run:
-     ```bash
-     python yolo/prepare_grozi_dataset.py --overwrite
-     ```
-     This script scans each class folder, copies normalized images into `yolo/dataset/grozi120/images`, generates YOLO bounding boxes from the provided masks, and regenerates `data.yaml` with 120 class names.
-   - **Sanity check + deterministic split:** validate labels, then create a fixed train/val split (default 85/15, seed 42):
-     ```bash
-     python yolo/check_grozi_dataset.py
-     python yolo/create_train_val_split.py --val-ratio 0.15 --seed 42
-     ```
-     This writes `splits/train.txt` and `splits/val.txt`, updates `data.yaml` to use `images/train` and `images/val`, and records the split seed.
-   - **Real Shelf Dataset:** The evaluation script now auto-downloads the Supermarket Shelves dataset using `kagglehub` when no images exist in `yolo/dataset/real_shelves/images`. You can also download manually via:
-     ```bash
-     python - <<'PY'
-     import kagglehub
-     path = kagglehub.dataset_download("humansintheloop/supermarket-shelves-dataset")
-     print("Path to dataset files:", path)
-     PY
-     ```
-     Copy any desired evaluation photos into `yolo/dataset/real_shelves/images`.
-   - **Stress-test augmentations (no new dataset):** expand the real shelf set with lighting/blur/occlusion/perspective variants:
-     ```bash
-     python yolo/augment_real_shelves.py --variants-per-image 3
-     ```
-     Outputs to `yolo/dataset/real_shelves/stress_test/` with a manifest for reproducibility.
+### 🧠 Computer Vision Core
+- **Model:** YOLOv11s fine-tuned on the **Grozi-120** dataset (120 grocery product classes).
+- **Performance:** Achieved **95.51% mAP@50** and **84.89% Precision** on the validation set.
+- **Robustness:** Tested with Test Time Augmentation (TTA) and geometric stress tests to ensure reliability on real-world shelf images.
 
-4. **Train YOLOv11**
-   ```bash
-   python yolo/train_yolo.py
-   ```
-   Training uses pretrained `yolo11s.pt` weights, the deterministic split from `data.yaml`, Adam optimizer, and the `OMNISHELF_YOLO_SEED` environment variable (default 42) for reproducibility. Adjust `OMNISHELF_YOLO_EPOCHS`, `OMNISHELF_YOLO_IMGSZ`, and `OMNISHELF_YOLO_BATCH` as needed.
-   - On Colab GPU, override via envs and set a unique run name to avoid overwriting:
-     ```bash
-     OMNISHELF_YOLO_DEVICE=0 \
-     OMNISHELF_YOLO_EPOCHS=50 \
-     OMNISHELF_YOLO_BATCH=16 \
-     OMNISHELF_YOLO_WORKERS=2 \
-     OMNISHELF_YOLO_CACHE=ram \
-     OMNISHELF_YOLO_RUN_NAME=train_colab \
-     OMNISHELF_YOLO_PLOTS=false \
-     python yolo/train_yolo.py
-     ```
-     Adjust batch/epochs to fit VRAM; set `OMNISHELF_YOLO_CACHE=disk` if RAM is constrained.
+### 🛡️ Admin Dashboard
+- **Real-Time Detection:** Upload shelf images (CSV) to run inference and get instant stock counts.
+- **Inventory Management:** Track stock levels, value, and shelf placement.
+- **Analytics:** Visualize category breakdowns and low-stock trends.
+- **Alerts:** Automated "Low Stock" and "Out of Stock" notifications.
 
-5. **Evaluate on Real Shelves**
-   ```bash
-   python yolo/evaluate_real_shelves.py --include-stress-test
-   ```
-   Generates `yolo/real_shelf_evaluation.csv` summarizing detection counts per image and class along with average confidences. Use `--include-stress-test` to report both the clean baseline photos and the augmented stress-test set.
+### 🛒 User Smart Cart
+- **Shopping Assistant:** Customers can view store inventory and check product availability.
+- **Smart Search:** Find products by name or category.
 
-6. **Initialize Database**
-   - Launch PostgreSQL locally and run the schema:
-     ```bash
-     psql $DATABASE_URL -f sql/init.sql
-     ```
+---
 
-7. **Run Backend API**
-   ```bash
-   uvicorn backend.main:app --reload --port 8002
-   ```
-   Exposes endpoints for detections ingestion, stock queries, shelf summaries, shopping list recommendations, and a health check.
+## 🏗️ Architecture
 
-8. **Run Streamlit Frontend**
-   ```bash
-   export API_BASE_URL=http://localhost:8002  # or your backend URL
-   streamlit run frontend/app.py
-   ```
-   Use the sidebar to switch between the Store Dashboard and SmartCart Assistant views.
-   - React UI is preserved under `frontend_react/` (run with `npm install && npm run dev`), and its container build lives in `Dockerfile.frontend-react`.
+The system follows a modern 3-tier architecture:
 
-   Quick dev start (both services, assumes venv + trained model in `yolo/runs/detect/train_colab/weights/best.pt`):
-   ```bash
-   ./scripts/dev_start.sh
-   ```
+1.  **AI Layer (YOLOv11)**
+    *   Training: PyTorch + Ultralytics on Google Colab T4 GPU.
+    *   Inference: Python-based inference engine (`yolo/utils.py`).
+    *   Data: Grozi-120 (Training) + Supermarket Shelves (Evaluation).
 
-## Docker (full stack)
-Run everything with Docker Compose (PostgreSQL + FastAPI + Streamlit):
+2.  **Backend (FastAPI)**
+    *   REST API running on port **8002**.
+    *   Handles detection logic, database CRUD operations, and business logic.
+    *   **Database:** PostgreSQL (Dockerized) running on port **5436**.
+
+3.  **Frontend (React + TypeScript)**
+    *   Modern SPA built with **Vite**.
+    *   **Admin Portal:** Secure dashboard for store managers.
+    *   **User Portal:** Public-facing kiosk interface.
+    *   Styled with Tailwind CSS and Radix UI.
+
+---
+
+## 🛠️ Setup & Installation
+
+### Prerequisites
+- Python 3.9+
+- Node.js 18+
+- Docker Desktop (for PostgreSQL)
+
+### 1. Clone & Setup Environment
 ```bash
-docker-compose up --build
-```
-- Backend: http://localhost:8002 (container talks to Postgres at `db:5432`)
-- Streamlit Frontend: http://localhost:8501 (uses `API_BASE_URL`; defaults to `http://backend:8002` in Compose)
-- Database: Postgres exposed on localhost:5436 (data persisted in the `pgdata` volume)
+git clone https://github.com/yourusername/omnishelf-ai.git
+cd omnishelf_ai
 
-## Populate the dashboard (demo data)
-With the backend running against your Postgres instance, you can quickly fill the dashboard with detections and 7-day history:
-```bash
-python load_detections.py          # load real-shelf evaluation detections
-python generate_stock_history.py   # backfill 7 days of stock snapshots
-```
-Or run both at once:
-```bash
-./scripts/seed_demo_data.sh
+# Create Python virtual environment
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-## Metrics & Analytics
-- **Training Metrics:** YOLO training logs include mAP, precision, recall, and loss curves.
-- **Real Shelf Evaluation:** Provides per-image detection counts and per-class aggregates to gauge generalization.
-- **Stock Accuracy:** Backend aggregates detection counts per shelf and per product to support merchandising decisions.
-
-## Testing
-FastAPI and detection utility tests are available via `pytest`:
+### 2. Start Database
 ```bash
-pytest
+docker compose up -d
+# Verifies PostgreSQL is running on port 5436
 ```
+
+### 3. Start Backend
+```bash
+# Ensure venv is active
+uvicorn backend.main:app --host 0.0.0.0 --port 8002 --reload
+```
+
+### 4. Start Frontend
+```bash
+cd frontend_react
+npm install
+npm run dev
+# Opens application at http://localhost:3002 (or similar)
+```
+
+---
+
+## 📊 Model Training & Results
+
+The model was trained using a rigorous iterative process documented in [EXPERIMENTS.md](EXPERIMENTS.md).
+
+| Metric | Value | Description |
+| :--- | :--- | :--- |
+| **mAP@50** | **95.51%** | High accuracy on standard validation set |
+| **mAP@50-95** | **81.98%** | Excellent localization precision |
+| **Precision** | **84.89%** | Low false positive rate |
+| **Recall** | **88.52%** | Misses very few products |
+
+**Training Hardware:** Google Colab Tesla T4 (16GB VRAM)
+**Training Time:** ~10 hours (50 epochs)
+
+---
+
+## 📂 Project Structure
+
+```
+omnishelf_ai/
+├── backend/             # FastAPI application
+├── frontend_react/      # React Admin & User dashboards
+├── yolo/                # Computer Vision module
+│   ├── dataset/         # Grozi-120 & Real Shelves data
+│   ├── runs/            # Training weights & logs
+│   ├── train_yolo.py    # Training script
+│   └── utils.py         # Inference logic
+├── sql/                 # Database initialization
+├── EXPERIMENTS.md       # Training log
+└── README.md            # This file
+```
+
+---
+
+## 📜 License
+This project is licensed under the MIT License - see the LICENSE file for details.

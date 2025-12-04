@@ -5,7 +5,11 @@ import { ModelPerformanceSection } from "./ModelPerformanceSection";
 import { RoleCardsSection } from "./RoleCardsSection";
 import { LandingFooter } from "./LandingFooter";
 
-export function LandingPage() {
+interface LandingPageProps {
+  onNavigate: (page: string) => void;
+}
+
+export function LandingPage({ onNavigate }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
       <LandingNav />
@@ -13,7 +17,7 @@ export function LandingPage() {
       <FeaturesSection />
       <ModelPerformanceSection />
       <RoleCardsSection />
-      <LandingFooter />
+      <LandingFooter onNavigate={onNavigate} />
     </div>
   );
 }

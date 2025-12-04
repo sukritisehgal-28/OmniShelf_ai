@@ -1,6 +1,6 @@
 // API Service Layer for OmniShelf AI Backend
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8002";
 
 // ============================================================================
 // Type Definitions
@@ -54,6 +54,28 @@ export interface Alert {
   resolved: boolean;
 }
 
+export interface AuthResponse {
+  token: string;
+  role: "admin" | "user";
+  email: string;
+}
+
+export interface CsvDetectionSummary {
+  files_processed: number;
+  products: {
+    product_name: string;
+    display_name: string;
+    count: number;
+    stock_level: string;
+  }[];
+  totals: {
+    high: number;
+    medium: number;
+    low: number;
+    out: number;
+  };
+}
+
 export interface AnalyticsData {
   total_products: number;
   total_stock_items: number;
@@ -75,10 +97,90 @@ export interface ModelMetrics {
   weights_size_mb: number;
   metrics: Record<string, number>;
   real_shelf_proxy_mAP?: number;
+  qualitative_analysis?: {
+    robustness_score_percent?: number;
+    [key: string]: any;
+  };
   success_criteria_evaluation?: Record<string, unknown>;
   tech_stack?: string[];
   last_updated?: string | null;
   run_name?: string;
+}
+
+// ============================================================================
+// Auth API Endpoints
+// ============================================================================
+
+export async function adminLogin(email: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/admin/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) throw new Error("Admin login failed");
+  return await response.json();
+}
+
+export async function adminSignup(email: string, password: string): Promise<AuthResponse> {
+  console.log("Signup not implemented", email, password);
+  throw new Error("Admin signup not implemented");
+}
+
+export async function userLogin(email: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/user/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) throw new Error("User login failed");
+  return await response.json();
+}
+
+export async function userSignup(email: string, password: string): Promise<AuthResponse> {
+  console.log("Signup not implemented", email, password);
+  throw new Error("User signup not implemented");
+}
+
+// ============================================================================
+// Admin API Endpoints
+// ============================================================================
+
+export interface ImageDetectionResult {
+  detections: {
+    product_name: string;
+    confidence: number;
+    bbox: number[];
+  }[];
+}
+
+export async function detectFromImage(file: File): Promise<ImageDetectionResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE_URL}/predict`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Image detection failed: ${response.statusText}`);
+  }
+  return await response.json();
+}
+
+export async function detectFromCsv(file: File): Promise<CsvDetectionSummary> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE_URL}/admin/detect-from-csv`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`CSV detection failed: ${response.statusText}`);
+  }
+  return await response.json();
 }
 
 // ============================================================================

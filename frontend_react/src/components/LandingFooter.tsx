@@ -1,4 +1,4 @@
-import { Package, Mail, Phone, MapPin, Twitter, Linkedin, Github } from "lucide-react";
+import { Package, Twitter, Linkedin, Github } from "lucide-react";
 
 interface LandingFooterProps {
   onNavigate: (page: string) => void;
@@ -8,16 +8,16 @@ export function LandingFooter({ onNavigate }: LandingFooterProps) {
   return (
     <footer className="bg-[#2c3e50] text-white py-16">
       <div className="max-w-[1400px] mx-auto px-8">
-        <div className="grid grid-cols-4 gap-12 mb-12">
+        <div className="flex flex-col items-center mb-12 text-center">
           {/* Brand Column */}
-          <div className="col-span-1">
+          <div className="flex flex-col items-center">
             <div className="flex items-center gap-3 mb-4">
               <Package className="w-8 h-8 text-[#3498db]" />
               <span className="text-[20px]" style={{ fontWeight: 700 }}>
                 OmniShelf AI
               </span>
             </div>
-            <p className="text-[14px] text-[#94a3b8] leading-relaxed mb-6">
+            <p className="text-[14px] text-[#94a3b8] leading-relaxed mb-6 max-w-md">
               Transforming retail operations with intelligent shelf monitoring and real-time analytics.
             </p>
             
@@ -33,101 +33,6 @@ export function LandingFooter({ onNavigate }: LandingFooterProps) {
                 <Github className="w-4 h-4" />
               </button>
             </div>
-          </div>
-
-          {/* Product Column */}
-          <div>
-            <h4 className="text-[16px] mb-4" style={{ fontWeight: 700 }}>
-              Product
-            </h4>
-            <ul className="space-y-3">
-              <li>
-                <button 
-                  onClick={() => onNavigate("features")}
-                  className="text-[14px] text-[#94a3b8] hover:text-white transition-colors"
-                >
-                  Features
-                </button>
-              </li>
-              <li>
-                <button 
-                  onClick={() => onNavigate("smartcart")}
-                  className="text-[14px] text-[#94a3b8] hover:text-white transition-colors"
-                >
-                  SmartCart Assistant
-                </button>
-              </li>
-              <li>
-                <button 
-                  onClick={() => onNavigate("admin")}
-                  className="text-[14px] text-[#94a3b8] hover:text-white transition-colors"
-                >
-                  Admin Dashboard
-                </button>
-              </li>
-              <li>
-                <button className="text-[14px] text-[#94a3b8] hover:text-white transition-colors">
-                  Pricing
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {/* Company Column */}
-          <div>
-            <h4 className="text-[16px] mb-4" style={{ fontWeight: 700 }}>
-              Company
-            </h4>
-            <ul className="space-y-3">
-              <li>
-                <button className="text-[14px] text-[#94a3b8] hover:text-white transition-colors">
-                  About Us
-                </button>
-              </li>
-              <li>
-                <button className="text-[14px] text-[#94a3b8] hover:text-white transition-colors">
-                  Careers
-                </button>
-              </li>
-              <li>
-                <button className="text-[14px] text-[#94a3b8] hover:text-white transition-colors">
-                  Blog
-                </button>
-              </li>
-              <li>
-                <button className="text-[14px] text-[#94a3b8] hover:text-white transition-colors">
-                  Contact
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {/* Contact Column */}
-          <div>
-            <h4 className="text-[16px] mb-4" style={{ fontWeight: 700 }}>
-              Contact Us
-            </h4>
-            <ul className="space-y-3">
-              <li className="flex items-center gap-3">
-                <Mail className="w-4 h-4 text-[#3498db]" />
-                <span className="text-[14px] text-[#94a3b8]">
-                  hello@omnishelf.ai
-                </span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Phone className="w-4 h-4 text-[#3498db]" />
-                <span className="text-[14px] text-[#94a3b8]">
-                  +1 (555) 123-4567
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <MapPin className="w-4 h-4 text-[#3498db] mt-1" />
-                <span className="text-[14px] text-[#94a3b8]">
-                  123 Retail Ave<br />
-                  San Francisco, CA 94102
-                </span>
-              </li>
-            </ul>
           </div>
         </div>
 

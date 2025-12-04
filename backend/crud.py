@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional
 
 from sqlalchemy import func
@@ -56,42 +56,81 @@ def bulk_create_detections(
 
 
 def get_stock_counts(db: Session) -> List[Dict[str, Optional[str]]]:
-    rows = (
+    """
+    Returns current stock using the latest stock snapshots when available.
+    Falls back to recent detections (last 24 hours) if no snapshots exist.
+    """
+    # Use latest snapshot per product
+    latest_snapshot_subq = (
         db.query(
-            models.ProductDetection.product_name,
-            func.count(models.ProductDetection.id).label("total_count"),
-            func.max(models.ProductDetection.timestamp).label("last_seen"),
+            models.StockSnapshot.product_name,
+            func.max(models.StockSnapshot.snapshot_time).label("latest_ts"),
         )
-        .group_by(models.ProductDetection.product_name)
+        .group_by(models.StockSnapshot.product_name)
+        .subquery()
+    )
+
+    snapshot_rows = (
+        db.query(
+            models.StockSnapshot.product_name,
+            models.StockSnapshot.shelf_id,
+            func.sum(models.StockSnapshot.count).label("count"),
+            func.max(models.StockSnapshot.snapshot_time).label("last_seen"),
+        )
+        .join(
+            latest_snapshot_subq,
+            (models.StockSnapshot.product_name == latest_snapshot_subq.c.product_name)
+            & (models.StockSnapshot.snapshot_time == latest_snapshot_subq.c.latest_ts),
+        )
+        .group_by(models.StockSnapshot.product_name, models.StockSnapshot.shelf_id)
         .all()
     )
 
-    shelf_rows = (
+    stock: List[Dict[str, Any]] = []
+    shelf_map: Dict[str, Dict[str, int]] = defaultdict(dict)
+    last_seen_map: Dict[str, datetime] = {}
+    total_map: Dict[str, int] = defaultdict(int)
+
+    for product_name, shelf_id, count, last_seen in snapshot_rows:
+        if shelf_id:
+            shelf_map[product_name][shelf_id] = count
+        total_map[product_name] += count
+        last_seen_map[product_name] = last_seen
+
+    # Fallback to recent detections (last 24 hours) when no snapshot exists
+    missing_products = set(total_map.keys())
+    if not snapshot_rows:
+        missing_products = set()
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+    recent_rows = (
         db.query(
             models.ProductDetection.product_name,
             models.ProductDetection.shelf_id,
             func.count(models.ProductDetection.id).label("count"),
+            func.max(models.ProductDetection.timestamp).label("last_seen"),
         )
+        .filter(models.ProductDetection.timestamp >= cutoff)
         .group_by(models.ProductDetection.product_name, models.ProductDetection.shelf_id)
         .all()
     )
+    for product_name, shelf_id, count, last_seen in recent_rows:
+        if product_name in total_map:
+            continue  # snapshot already covers this product
+        if shelf_id:
+            shelf_map[product_name][shelf_id] = count
+        total_map[product_name] += count
+        last_seen_map[product_name] = last_seen
 
-    shelf_map: Dict[str, Dict[str, int]] = defaultdict(dict)
-    for product_name, shelf_id, count in shelf_rows:
-        if shelf_id is None:
-            continue
-        shelf_map[product_name][shelf_id] = count
-
-    stock = []
-    for product_name, total_count, last_seen in rows:
+    for product_name, total_count in total_map.items():
         stock.append(
             {
                 "product_name": product_name,
                 "total_count": total_count,
-                "last_seen": last_seen,
+                "last_seen": last_seen_map.get(product_name),
                 "shelf_breakdown": shelf_map.get(product_name, {}),
             }
         )
+
     return stock
 
 

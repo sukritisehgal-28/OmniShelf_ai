@@ -98,7 +98,7 @@ export function SecondaryCharts() {
               name="Value ($)"
               radius={[0, 8, 8, 0]}
             >
-              {categoryData.map((entry, index) => (
+              {categoryData.map((_entry, index) => (
                 <Cell key={`cell-${index}`} fill={categoryColors[index % categoryColors.length]} />
               ))}
             </Bar>

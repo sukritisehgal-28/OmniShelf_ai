@@ -1,0 +1,12 @@
+names:
+- object
+nc: 1
+roboflow:
+  license: Public Domain
+  project: sku110k-toc01
+  url: https://universe.roboflow.com/sku-fzp1x/sku110k-toc01/dataset/3
+  version: 3
+  workspace: sku-fzp1x
+test: ../test/images
+train: ../train/images
+val: ../valid/images

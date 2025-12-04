@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Package } from "lucide-react";
-import { Button } from "./ui/button";
+// import { Button } from "./ui/button";
 
 interface LandingNavProps {
   onNavigate?: (page: string) => void;
@@ -70,16 +70,6 @@ export function LandingNav({ onNavigate }: LandingNavProps) {
           >
             Solutions
           </button>
-          <Button
-            onClick={() => {
-              onNavigate?.("smartcart");
-              navigate("/user/smartcart");
-            }}
-            className="bg-[#3498db] hover:bg-[#2980b9] text-white px-6 py-2 rounded-lg transition-all"
-            style={{ fontWeight: 600 }}
-          >
-            Try SmartCart
-          </Button>
         </div>
       </div>
     </nav>

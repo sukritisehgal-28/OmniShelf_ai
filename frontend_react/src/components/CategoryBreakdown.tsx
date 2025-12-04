@@ -57,7 +57,7 @@ export function CategoryBreakdown() {
                 name="Products"
                 radius={[8, 8, 0, 0]}
               >
-                {countData.map((entry, index) => (
+                {countData.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
                 ))}
               </Bar>
@@ -99,7 +99,7 @@ export function CategoryBreakdown() {
                 name="Value ($)"
                 radius={[8, 8, 0, 0]}
               >
-                {valueData.map((entry, index) => (
+                {valueData.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
                 ))}
               </Bar>

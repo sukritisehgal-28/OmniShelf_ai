@@ -1,0 +1,7 @@
+
+names:
+- object
+nc: 1
+train: /Users/sukritisehgal/omnishelf_ai/sku110k-3/train/images
+val: /Users/sukritisehgal/omnishelf_ai/sku110k-3/valid/images
+test: /Users/sukritisehgal/omnishelf_ai/sku110k-3/test/images

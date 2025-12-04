@@ -9,6 +9,20 @@ interface HeroSectionProps {
 export function HeroSection({ onNavigate }: HeroSectionProps) {
   const navigate = useNavigate();
 
+  const scrollToExperience = () => {
+    const scrollNow = () => {
+      const target = document.getElementById("experience");
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
+    if (window.location.pathname !== "/") {
+      navigate("/");
+      setTimeout(scrollNow, 120);
+    } else {
+      scrollNow();
+    }
+  };
+
   return (
     <section className="w-full bg-gradient-to-br from-[#e3f2fd] via-white to-[#f5f5f5] px-8 py-20">
       <div className="max-w-[1440px] mx-auto grid grid-cols-2 gap-16 items-center">
@@ -30,22 +44,11 @@ export function HeroSection({ onNavigate }: HeroSectionProps) {
           <div className="flex items-center gap-4">
             <Button
               onClick={() => {
-                onNavigate?.("admin");
-                navigate("/admin/dashboard");
+                scrollToExperience();
               }}
               className="bg-[#3498db] text-white hover:bg-[#2980b9] px-8 h-12 rounded-lg"
             >
               Get Started
-            </Button>
-            <Button
-              onClick={() => {
-                onNavigate?.("smartcart");
-                navigate("/user/smartcart");
-              }}
-              variant="outline"
-              className="border-[#3498db] text-[#3498db] hover:bg-[#3498db]/10 px-8 h-12 rounded-lg"
-            >
-              Watch Demo
             </Button>
           </div>
           
@@ -82,7 +85,7 @@ export function HeroSection({ onNavigate }: HeroSectionProps) {
         <div className="relative">
           <div className="bg-white rounded-3xl shadow-2xl p-8 border border-[#e5e7eb]">
             <ImageWithFallback 
-              src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=600&fit=crop"
+              src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=600&fit=crop"
               alt="Smart retail shelf monitoring"
               className="w-full h-[400px] object-cover rounded-2xl mb-6"
             />

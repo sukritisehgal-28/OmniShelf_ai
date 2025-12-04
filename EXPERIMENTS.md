@@ -1,4 +1,4 @@
-# Experiment Tracking Log
+# OmniShelf AI - Training Experiments Log
 
 This document tracks the iterative development process of the OmniShelf AI YOLOv11 model, documenting both successful and unsuccessful attempts to optimize performance.
 
@@ -48,7 +48,3 @@ This document tracks the iterative development process of the OmniShelf AI YOLOv
   - **mAP@50: 95.51%** ✅ (Exceeds expected 85%+)
   - **mAP@50-95: 81.98%** ✅ (Excellent multi-threshold performance)
   - **Precision: 84.89%** ✅ (Low false positive rate)
-  - **Recall: 88.52%** ✅ (Detects 88.5% of actual products)
-  - **Training Time: 9.82 hours** (on T4 GPU)
-- **Artifacts:** `yolo/runs/detect/train_colab/weights/best.pt`
-- **Observations:** Outstanding validation performance on clean Grozi-120 images. Model is production-ready for controlled environment shelf monitoring. Next step: evaluate on real-world images to quantify domain gap.

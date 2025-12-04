@@ -1,110 +1,53 @@
-# PostgreSQL Setup for OmniShelf AI
+# Database Setup Guide (PostgreSQL + Docker)
 
-OmniShelf now defaults to PostgreSQL. Use the SQLite notes below only as a legacy fallback for quick demos.
+OmniShelf AI uses a containerized PostgreSQL database for reliability and ease of setup.
 
-## 🐘 Quick Setup Guide
+## 🐳 Docker Setup (Recommended)
 
-### Option 1: Set PostgreSQL Password (Recommended)
+The easiest way to run the database is via Docker Compose.
 
-1. **Set a password for your PostgreSQL user:**
-   ```bash
-   psql postgres
-   ```
+### 1. Start the Database
+```bash
+docker compose up -d
+```
+This starts a PostgreSQL 15 container mapping port **5432** (container) to **5436** (host).
 
-2. **Inside psql, run:**
-   ```sql
-   ALTER USER sukritisehgal WITH PASSWORD 'your_secure_password';
-   CREATE DATABASE omnishelf;
-   \q
-   ```
+### 2. Connection Details
+If you want to connect using a GUI tool like **DBeaver**, **TablePlus**, or **pgAdmin**, use these credentials:
 
-3. **Update `.env` file:**
-   ```
-   DATABASE_URL=postgresql://sukritisehgal:your_secure_password@localhost:5434/omnishelf
-   ```
+*   **Host:** `localhost`
+*   **Port:** `5436`
+*   **Database:** `omnishelf`
+*   **User:** `omnishelf_user`
+*   **Password:** `omnishelf_password`
 
-4. **Install PostgreSQL Python driver:**
-   ```bash
-   source venv/bin/activate
-   pip install psycopg2-binary
-   ```
+*(These values are defined in `docker-compose.yml`)*
 
-5. **Initialize database tables:**
-   ```bash
-   python init_postgres.py
-   ```
+### 3. Resetting the Database
+If you need to wipe all data and start fresh:
 
-### Option 2: Use Trust Authentication (Development Only)
+```bash
+# Stop the container and remove the volume
+docker compose down -v
 
-1. **Edit PostgreSQL config:**
-   ```bash
-   # Find pg_hba.conf location
-   psql postgres -c "SHOW hba_file;"
-
-   # Edit the file (example path)
-   nano /opt/homebrew/var/postgresql@14/pg_hba.conf
-   ```
-
-2. **Change this line:**
-   ```
-   # FROM:
-   local   all             all                                     md5
-
-   # TO:
-   local   all             all                                     trust
-   ```
-
-3. **Restart PostgreSQL:**
-   ```bash
-   brew services restart postgresql
-   ```
-
-4. **Create database:**
-   ```bash
-   createdb omnishelf
-   python init_postgres.py
-   ```
-
-### Option 3: Legacy SQLite Fallback (not recommended)
-
-Prefer PostgreSQL. If you must run a quick demo without Postgres:
-
-1. **Update `.env`:**
-   ```
-   DATABASE_URL=sqlite:///./omnishelf.db
-   ```
-
-2. **Restart FastAPI.**
+# Restart (will re-initialize with empty tables)
+docker compose up -d
+```
 
 ---
 
-## Current Status
+## 🐍 Python Connection
 
-✅ Default database set to PostgreSQL
-✅ Init script created (`init_postgres.py`)
-❌ Configure Postgres auth if you have not already
+The backend connects using `SQLAlchemy`. The connection string is automatically handled in `backend/database.py`, but for reference it is:
 
-## Next Steps
+```
+postgresql://omnishelf_user:omnishelf_password@localhost:5436/omnishelf
+```
 
-**Choose one option above and follow the steps!**
+## 🛠️ Troubleshooting
 
-After setup:
-1. Restart FastAPI: `uvicorn backend.main:app --reload --port 8001`
-2. Tables will be auto-created
-3. Migrate data if needed (see DATA_MIGRATION.md)
-
----
-
-## Troubleshooting
-
-**Error: "fe_sendauth: no password supplied"**
-→ Follow Option 1 or Option 2 above
-
-**Error: "database does not exist"**
-→ Run: `createdb omnishelf` or use SQL: `CREATE DATABASE omnishelf;`
-
-**Error: "psycopg2 not installed"**
-→ Run: `pip install psycopg2-binary`
-
-**Need SQLite temporarily?**
-→ Change `.env` to: `DATABASE_URL=sqlite:///./omnishelf.db` (demo only; switch back to Postgres after)
+**"Port 5436 is already in use"**
+If you cannot start the container, another service might be using port 5436.
+1.  Open `docker-compose.yml`.
+2.  Change `"5436:5432"` to `"5437:5432"`.
+3.  Update `backend/database.py` to use port 5437.

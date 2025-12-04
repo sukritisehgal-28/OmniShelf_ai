@@ -40,8 +40,8 @@ export function SmartCartAI({ onNavigate }: SmartCartAIProps) {
         .map(item => item.trim())
         .filter(item => item.length > 0);
 
-      const response = await searchShoppingList(itemList.map(item => ({ item_name: item })));
-      setResults(response.results);
+      const response = await searchShoppingList(itemList);
+      setResults(response);
     } catch (err) {
       setError("Failed to search products. Please try again.");
       console.error(err);
