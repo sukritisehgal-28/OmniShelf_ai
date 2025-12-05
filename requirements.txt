@@ -17,3 +17,4 @@ scikit-learn
 kagglehub
 pytest
 httpx
+openai

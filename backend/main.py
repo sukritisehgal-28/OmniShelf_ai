@@ -4,12 +4,17 @@ from __future__ import annotations
 import sys
 import csv
 import json
+import os
 import shutil
 import tempfile
 import hashlib
 from pathlib import Path
 from typing import List, Optional
 from datetime import datetime
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, File, UploadFile
@@ -191,6 +196,163 @@ def get_stock_alias(db: Session = Depends(get_db)):
     return summary["products"]
 
 
+@app.get("/inventory/recent-uploads")
+def get_recent_uploads(db: Session = Depends(get_db)):
+    """Get recent inventory uploads grouped by upload session (each save click)."""
+    from backend.models import ProductDetection
+    from sqlalchemy import func
+    from datetime import timedelta
+    
+    # Get all detections from the last 30 days
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    
+    # Query detections ordered by timestamp
+    detections = (
+        db.query(ProductDetection)
+        .filter(ProductDetection.timestamp >= thirty_days_ago)
+        .order_by(ProductDetection.timestamp.desc())
+        .all()
+    )
+    
+    # Group by session_id (each save click gets unique session_id)
+    # For older records without session_id, group by exact timestamp
+    sessions_dict = {}
+    
+    for detection in detections:
+        # Use session_id if available, otherwise use exact timestamp as key
+        if detection.session_id:
+            session_key = detection.session_id
+        else:
+            # For legacy records, use timestamp rounded to second as session key
+            session_key = detection.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        
+        if session_key not in sessions_dict:
+            sessions_dict[session_key] = {
+                "id": len(sessions_dict) + 1,
+                "session_id": detection.session_id or session_key,
+                "timestamp": detection.timestamp,
+                "date": detection.timestamp.strftime("%Y-%m-%d"),
+                "time": detection.timestamp.strftime("%H:%M:%S"),
+                "products": {},
+                "total_items": 0,
+                "shelf_id": detection.shelf_id or "unknown"
+            }
+        
+        session = sessions_dict[session_key]
+        product_name = detection.product_name
+        display_name = get_display_name(product_name)
+        
+        if product_name not in session["products"]:
+            session["products"][product_name] = {
+                "grozi_code": product_name,
+                "display_name": display_name,
+                "category": get_category(product_name),
+                "price": get_price(product_name),
+                "quantity": 0
+            }
+        session["products"][product_name]["quantity"] += 1
+        session["total_items"] += 1
+    
+    # Convert to list sorted by timestamp (most recent first)
+    sessions = sorted(sessions_dict.values(), key=lambda x: x["timestamp"], reverse=True)
+    
+    # Re-assign IDs and convert products dict to list
+    for idx, session in enumerate(sessions):
+        session["id"] = idx + 1
+        session["products"] = list(session["products"].values())
+        session["total_value"] = sum(p["price"] * p["quantity"] for p in session["products"])
+    
+    return {
+        "sessions": sessions,
+        "total_sessions": len(sessions)
+    }
+
+
+@app.post("/inventory/bulk-update")
+def bulk_update_inventory(request: dict, db: Session = Depends(get_db)):
+    """Bulk update inventory from shelf scan results."""
+    from backend.models import ProductDetection
+    import uuid
+    
+    updates = request.get("updates", [])
+    if not updates:
+        raise HTTPException(status_code=400, detail="No updates provided")
+    
+    # Generate unique session ID for this save
+    session_id = str(uuid.uuid4())[:8]
+    
+    added_count = 0
+    for item in updates:
+        name = item.get("name", "")
+        quantity = item.get("quantity", 0)
+        
+        if not name or quantity <= 0:
+            continue
+        
+        # Find matching grozi code from display name (fuzzy match)
+        grozi_code = None
+        name_lower = name.lower()
+        
+        # Handle specific product name variations
+        if "pringles" in name_lower:
+            if "sour cream" in name_lower:
+                grozi_code = "grozi_35"  # Pringles Sour Cream & Onion
+            else:
+                # "Pringles Original", "Pringles Potato Crisps", or just "Pringles"
+                grozi_code = "grozi_36"  # Pringles Potato Crisps
+        
+        # First try exact match
+        if not grozi_code:
+            for code, display in PRODUCT_NAME_MAP.items():
+                if display.lower() == name_lower:
+                    grozi_code = code
+                    break
+        
+        # If no exact match, try partial match (brand name)
+        if not grozi_code:
+            for code, display in PRODUCT_NAME_MAP.items():
+                display_lower = display.lower()
+                # Check if either contains the other
+                if name_lower in display_lower or display_lower in name_lower:
+                    grozi_code = code
+                    break
+        
+        # If still no match, try brand match (first word)
+        if not grozi_code:
+            name_parts = name_lower.split()
+            if name_parts:
+                name_brand = name_parts[0]
+                for code, display in PRODUCT_NAME_MAP.items():
+                    display_parts = display.lower().split()
+                    if display_parts and display_parts[0] == name_brand:
+                        grozi_code = code
+                        break
+        
+        if grozi_code:
+            # Create detection records for the inventory
+            for _ in range(quantity):
+                detection = ProductDetection(
+                    product_name=grozi_code,
+                    confidence=0.85,
+                    bbox_x1=0,
+                    bbox_y1=0,
+                    bbox_x2=100,
+                    bbox_y2=100,
+                    shelf_id="shelf_scan",
+                    session_id=session_id,
+                )
+                db.add(detection)
+            added_count += quantity
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Added {added_count} items to inventory",
+        "items_added": added_count
+    }
+
+
 @app.get("/products", response_model=List[schemas.ProductRead])
 def get_products():
     """Get all products with metadata."""
@@ -335,14 +497,8 @@ def smartcart_search(request: schemas.ShoppingListRequest, db: Session = Depends
         stock = crud.get_product_stock(db, grozi_code)
         count = stock["total_count"] if stock else 0
 
-        # Get shelf from product mapping (always available)
+        # Always use product mapping aisle (most accurate)
         shelf_id = get_shelf(grozi_code)
-        
-        # Override with planogram or stock data if available
-        if planogram and planogram.shelf_id:
-            shelf_id = planogram.shelf_id
-        elif stock and stock["shelf_ids"]:
-            shelf_id = stock["shelf_ids"][0]
 
         expected = planogram.expected_stock if planogram else None
         stock_level = determine_stock_level(count, expected)

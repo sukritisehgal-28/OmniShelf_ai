@@ -1,5 +1,18 @@
 import { useState, useRef } from "react";
-import { Upload, Camera, Loader2, Package, X, CheckCircle, AlertCircle } from "lucide-react";
+import { Upload, Camera, Loader2, Package, X, CheckCircle, AlertCircle, ShieldCheck, Eye, Plus } from "lucide-react";
+import { inventoryEvents } from "../services/inventoryEvents";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8002";
+
+interface Verification {
+  verified: boolean;
+  original_prediction: string;
+  clip_prediction: string;
+  agrees: boolean;
+  final_prediction: string;
+  source: string;
+  confidence: number;
+}
 
 interface Detection {
   bbox: { x1: number; y1: number; x2: number; y2: number };
@@ -8,6 +21,8 @@ interface Detection {
   confidence: number;
   category: string;
   sku_confidence?: number;
+  verification?: Verification;
+  verified_by?: string;
 }
 
 interface ScanResult {
@@ -16,6 +31,7 @@ interface ScanResult {
   product_counts: Record<string, number>;
   detections: Detection[];
   image_size: { width: number; height: number };
+  clip_enabled?: boolean;
 }
 
 export function ShelfScanner() {
@@ -23,6 +39,8 @@ export function ShelfScanner() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [addingToInventory, setAddingToInventory] = useState(false);
+  const [inventoryMessage, setInventoryMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,7 +78,7 @@ export function ShelfScanner() {
       const formData = new FormData();
       formData.append("file", selectedFile);
 
-      const response = await fetch("http://localhost:8002/predict/shelf", {
+      const response = await fetch(`${API_BASE_URL}/predict/shelf`, {
         method: "POST",
         body: formData,
       });
@@ -104,26 +122,74 @@ export function ShelfScanner() {
     return colors[category] || colors["General"];
   };
 
+  const handleAddToInventory = async () => {
+    if (!result) return;
+    
+    setAddingToInventory(true);
+    setInventoryMessage(null);
+    
+    try {
+      // Build inventory updates from product counts
+      const updates = Object.entries(result.product_counts).map(([name, count]) => ({
+        name,
+        quantity: count,
+      }));
+      
+      const response = await fetch(`${API_BASE_URL}/inventory/bulk-update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to update inventory");
+      }
+      
+      // Emit event to notify inventory components to refresh
+      inventoryEvents.emit();
+      
+      setInventoryMessage({ type: 'success', text: `Successfully added ${Object.keys(result.product_counts).length} products to inventory!` });
+    } catch (err) {
+      setInventoryMessage({ type: 'error', text: 'Failed to update inventory. Please try again.' });
+      console.error(err);
+    } finally {
+      setAddingToInventory(false);
+    }
+  };
+
+  // Count CLIP corrections
+  const getClipStats = () => {
+    if (!result) return { verified: 0, corrected: 0 };
+    const verified = result.detections.filter(d => d.verified_by === 'clip_verified').length;
+    const corrected = result.detections.filter(d => d.verified_by === 'clip_corrected').length;
+    return { verified, corrected };
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6">
+      <div style={{ background: 'linear-gradient(to bottom right, #1e3a5f, #2c3e50)', borderRadius: '16px', padding: '24px' }}>
         <div className="flex items-center gap-3 mb-2">
           <Camera className="w-8 h-8" style={{ color: '#ffffff' }} />
           <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#ffffff' }}>
             Shelf Scanner
           </h2>
         </div>
-        <p style={{ fontSize: '14px', color: '#e0e7ff' }}>
-          Upload a shelf image to detect and count products using two-stage AI detection
+        <p style={{ fontSize: '14px', color: '#ffffff' }}>
+          Upload a shelf image to detect and count products using AI detection with verification
         </p>
-        <div className="mt-4 flex items-center gap-4">
-          <div style={{ backgroundColor: '#ffffff', color: '#1d4ed8', fontWeight: 600, padding: '6px 14px', borderRadius: '9999px', fontSize: '12px' }}>
+        <div className="mt-4 flex items-center gap-4 flex-wrap">
+          <div style={{ backgroundColor: '#ffffff', color: '#1e3a5f', fontWeight: 600, padding: '6px 14px', borderRadius: '9999px', fontSize: '12px' }}>
             Stage 1: SKU-110K Detection
           </div>
-          <span style={{ color: '#ffffff', fontWeight: 700, fontSize: '18px' }}>→</span>
-          <div style={{ backgroundColor: '#ffffff', color: '#4338ca', fontWeight: 600, padding: '6px 14px', borderRadius: '9999px', fontSize: '12px' }}>
+          <span style={{ color: '#ffffff', fontWeight: 700, fontSize: '20px' }}>→</span>
+          <div style={{ backgroundColor: '#ffffff', color: '#1e3a5f', fontWeight: 600, padding: '6px 14px', borderRadius: '9999px', fontSize: '12px' }}>
             Stage 2: Grozi-120 Classification
+          </div>
+          <span style={{ color: '#ffffff', fontWeight: 700, fontSize: '20px' }}>→</span>
+          <div style={{ backgroundColor: '#ffffff', color: '#1e3a5f', fontWeight: 600, padding: '6px 14px', borderRadius: '9999px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Eye className="w-3.5 h-3.5" />
+            Stage 3: OpenAI Verification
           </div>
         </div>
       </div>
@@ -239,9 +305,9 @@ export function ShelfScanner() {
                 <span className="text-[13px] text-[#6b7280]">Identified</span>
               </div>
               <p className="text-[32px] text-[#111827]" style={{ fontWeight: 800 }}>
-                {result.products_identified}
+                {Object.values(result.product_counts).reduce((a, b) => a + b, 0)}
               </p>
-              <p className="text-[12px] text-[#9ca3af]">by Grozi-120</p>
+              <p className="text-[12px] text-[#9ca3af]">after verification</p>
             </div>
 
             <div className="bg-white border border-[#e5e7eb] rounded-xl p-6 shadow-sm">
@@ -256,12 +322,80 @@ export function ShelfScanner() {
             </div>
           </div>
 
+          {/* CLIP Verification Banner */}
+          {getClipStats().corrected > 0 && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
+              <div className="bg-emerald-100 rounded-full p-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-[14px] text-emerald-800" style={{ fontWeight: 600 }}>
+                  ✓ Verified with OpenAI
+                </p>
+                <p className="text-[13px] text-emerald-700">
+                  {getClipStats().corrected} product{getClipStats().corrected !== 1 ? 's' : ''} correctly identified!
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Product Counts */}
           {Object.keys(result.product_counts).length > 0 && (
             <div className="bg-white border border-[#e5e7eb] rounded-xl p-6 shadow-sm">
-              <h3 className="text-[16px] text-[#111827] mb-4" style={{ fontWeight: 700 }}>
-                📦 Product Inventory
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[16px] text-[#111827]" style={{ fontWeight: 700 }}>
+                  📦 Product Inventory
+                </h3>
+                <button
+                  onClick={handleAddToInventory}
+                  disabled={addingToInventory}
+                  style={{
+                    backgroundColor: addingToInventory ? '#9ca3af' : '#10b981',
+                    color: '#ffffff',
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    border: 'none',
+                    cursor: addingToInventory ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {addingToInventory ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      Add to Inventory
+                    </>
+                  )}
+                </button>
+              </div>
+              
+              {inventoryMessage && (
+                <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
+                  inventoryMessage.type === 'success' 
+                    ? 'bg-green-50 border border-green-200' 
+                    : 'bg-red-50 border border-red-200'
+                }`}>
+                  {inventoryMessage.type === 'success' ? (
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-600" />
+                  )}
+                  <span className={`text-[13px] ${
+                    inventoryMessage.type === 'success' ? 'text-green-700' : 'text-red-700'
+                  }`}>
+                    {inventoryMessage.text}
+                  </span>
+                </div>
+              )}
+              
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {Object.entries(result.product_counts)
                   .sort((a, b) => b[1] - a[1])
@@ -293,13 +427,11 @@ export function ShelfScanner() {
                   <tr className="text-left text-[12px] text-[#6b7280] border-b border-[#e5e7eb]">
                     <th className="pb-3 font-semibold">Product</th>
                     <th className="pb-3 font-semibold">Category</th>
-                    <th className="pb-3 font-semibold">Confidence</th>
-                    <th className="pb-3 font-semibold">Location</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.detections
-                    .filter(d => d.class_name !== "unknown")
+                    .filter(d => d.class_name !== "unknown" && d.display_name !== "Unknown Product")
                     .sort((a, b) => b.confidence - a.confidence)
                     .slice(0, 20)
                     .map((det, idx) => (
@@ -314,29 +446,13 @@ export function ShelfScanner() {
                             {det.category}
                           </span>
                         </td>
-                        <td className="py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-24 bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-green-500 h-2 rounded-full"
-                                style={{ width: `${det.confidence * 100}%` }}
-                              />
-                            </div>
-                            <span className="text-[12px] text-[#6b7280]">
-                              {(det.confidence * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 text-[12px] text-[#6b7280]">
-                          ({det.bbox.x1}, {det.bbox.y1})
-                        </td>
                       </tr>
                     ))}
                 </tbody>
               </table>
-              {result.detections.filter(d => d.class_name !== "unknown").length > 20 && (
+              {result.detections.filter(d => d.class_name !== "unknown" && d.display_name !== "Unknown Product").length > 20 && (
                 <p className="text-[12px] text-[#6b7280] mt-3 text-center">
-                  Showing top 20 of {result.detections.filter(d => d.class_name !== "unknown").length} detections
+                  Showing top 20 of {result.detections.filter(d => d.class_name !== "unknown" && d.display_name !== "Unknown Product").length} detections
                 </p>
               )}
             </div>
@@ -349,8 +465,7 @@ export function ShelfScanner() {
                 ⚠️ Unidentified Products
               </h3>
               <p className="text-[13px] text-yellow-700">
-                {result.detections.filter(d => d.class_name === "unknown").length} products were detected but couldn't be identified. 
-                These may be products not in the Grozi-120 training set.
+                {result.detections.filter(d => d.class_name === "unknown").length} products were detected but couldn't be identified.
               </p>
             </div>
           )}

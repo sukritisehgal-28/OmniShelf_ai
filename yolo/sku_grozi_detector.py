@@ -3,6 +3,7 @@ Two-Stage Shelf Detection System
 ================================
 Stage 1: SKU-110K detects ALL products on shelf (generic "object" detection)
 Stage 2: Grozi-120 classifies each detected product
+Stage 3 (Optional): CLIP verifies/corrects classifications
 
 This solves the domain gap problem - SKU-110K was trained on real shelf images!
 """
@@ -30,6 +31,7 @@ class TwoStageShelfDetector:
     
     Stage 1: SKU-110K finds all products (trained on 10k+ real shelf images)
     Stage 2: Grozi-120 identifies each product (120 specific products)
+    Stage 3: CLIP verifies/corrects classifications (optional)
     """
     
     def __init__(
@@ -38,6 +40,7 @@ class TwoStageShelfDetector:
         grozi_model_path: str = None,
         sku_confidence: float = 0.25,
         grozi_confidence: float = 0.3,
+        use_clip_verification: bool = True,
     ):
         """
         Initialize both detection models.
@@ -47,11 +50,13 @@ class TwoStageShelfDetector:
             grozi_model_path: Path to Grozi-120 model
             sku_confidence: Confidence threshold for SKU detection
             grozi_confidence: Confidence threshold for Grozi classification
+            use_clip_verification: Whether to use CLIP to verify results
         """
         self.sku_model_path = sku_model_path or str(SKU_MODEL_PATH)
         self.grozi_model_path = grozi_model_path or str(GROZI_MODEL_PATH)
         self.sku_confidence = sku_confidence
         self.grozi_confidence = grozi_confidence
+        self.use_clip_verification = use_clip_verification
         
         print("🔄 Loading models...")
         
@@ -64,6 +69,19 @@ class TwoStageShelfDetector:
         print("   Loading Grozi-120 (product classifier)...")
         self.grozi_model = YOLO(self.grozi_model_path)
         print(f"   ✅ Grozi-120 loaded! Classes: {len(self.grozi_model.names)}")
+        
+        # Stage 3: CLIP verifier (optional)
+        self.clip_verifier = None
+        if use_clip_verification:
+            try:
+                from yolo.clip_verifier import CLIPVerifier
+                self.clip_verifier = CLIPVerifier()
+                if self.clip_verifier.enabled:
+                    print("   ✅ CLIP Verifier enabled!")
+                else:
+                    print("   ⚠️ CLIP Verifier disabled (no API key)")
+            except Exception as e:
+                print(f"   ⚠️ CLIP Verifier not available: {e}")
         
         print("🎉 Two-stage detector ready!")
     
@@ -189,6 +207,18 @@ class TwoStageShelfDetector:
         
         print(f"   Identified {identified}/{len(product_boxes)} products")
         
+        # Stage 3: CLIP verification (if enabled)
+        if self.clip_verifier and self.clip_verifier.enabled and identified > 0:
+            print(f"\n🔍 Stage 3: CLIP verifying {identified} classifications...")
+            detections = self.clip_verifier.verify_batch(detections, image)
+            
+            # Count corrections
+            corrections = sum(1 for d in detections if d.get("verified_by") == "clip_corrected")
+            if corrections > 0:
+                print(f"   ✅ CLIP corrected {corrections} misclassifications!")
+            else:
+                print(f"   ✅ CLIP verified all classifications")
+        
         # Build result
         result = {
             "image_path": image_path,
@@ -197,6 +227,7 @@ class TwoStageShelfDetector:
             "products_identified": identified,
             "detections": detections,
             "product_counts": self._count_products(detections),
+            "clip_enabled": bool(self.clip_verifier and self.clip_verifier.enabled),
         }
         
         return result

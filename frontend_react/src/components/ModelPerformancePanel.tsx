@@ -13,10 +13,10 @@ export function ModelPerformancePanel() {
   }, []);
 
   const MODEL_METRICS = [
-    { label: "mAP@50", value: data?.metrics?.["val_mAP50"] ? `${(data.metrics["val_mAP50"] * 100).toFixed(2)}%` : "—", desc: "Validation", icon: Gauge, tone: "bg-blue-50 text-[#1f2937]" },
-    { label: "Precision / Recall", value: data?.metrics?.val_precision !== undefined && data.metrics?.val_recall !== undefined ? `${(data.metrics.val_precision * 100).toFixed(1)}% / ${(data.metrics.val_recall * 100).toFixed(1)}%` : "—", desc: "Validation", icon: CheckCircle2, tone: "bg-emerald-50 text-[#1f2937]" },
-    { label: "Robustness", value: data?.qualitative_analysis?.robustness_score_percent ? `${data.qualitative_analysis.robustness_score_percent.toFixed(1)}%` : "—", desc: "Baseline vs stress-test", icon: ShieldCheck, tone: "bg-indigo-50 text-[#1f2937]" },
-    { label: "Model Footprint", value: data?.weights_size_mb ? `${data.weights_size_mb} MB` : "—", desc: data?.model_exists ? "Weights present" : "Weights missing", icon: Database, tone: "bg-amber-50 text-[#1f2937]" },
+    { label: "mAP@50", value: data?.metrics?.["val_mAP50"] ? `${(data.metrics["val_mAP50"] * 100).toFixed(2)}%` : "—", desc: "Detection Accuracy", icon: Gauge, tone: "bg-blue-50 text-[#1f2937]" },
+    { label: "Precision / Recall", value: data?.metrics?.val_precision !== undefined && data.metrics?.val_recall !== undefined ? `${(data.metrics.val_precision * 100).toFixed(1)}% / ${(data.metrics.val_recall * 100).toFixed(1)}%` : "—", desc: "Classification Quality", icon: CheckCircle2, tone: "bg-emerald-50 text-[#1f2937]" },
+    { label: "Robustness", value: data?.qualitative_analysis?.robustness_score_percent ? `${data.qualitative_analysis.robustness_score_percent.toFixed(1)}%` : "—", desc: "Stress-test Performance", icon: ShieldCheck, tone: "bg-indigo-50 text-[#1f2937]" },
+    { label: "Model Size", value: data?.weights_size_mb ? `${data.weights_size_mb} MB` : "—", desc: data?.model_exists ? "Optimized & Ready" : "Loading...", icon: Database, tone: "bg-amber-50 text-[#1f2937]" },
   ];
 
   return (

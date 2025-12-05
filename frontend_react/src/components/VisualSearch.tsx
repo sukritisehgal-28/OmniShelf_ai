@@ -1,8 +1,10 @@
 import { useState, useRef } from "react";
-import { Upload, Camera, Search, Package, MapPin, DollarSign, ArrowLeft, X, Loader2 } from "lucide-react";
+import { Upload, Search, Package, MapPin, DollarSign, X, Loader2 } from "lucide-react";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8002";
 
 interface VisualSearchProps {
-  onNavigate: (page: string) => void;
+  onNavigate?: (page: string) => void;
 }
 
 interface SearchResult {
@@ -20,7 +22,7 @@ interface SearchResult {
   };
 }
 
-export function VisualSearch({ onNavigate }: VisualSearchProps) {
+export function VisualSearch({ onNavigate: _onNavigate }: VisualSearchProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [result, setResult] = useState<SearchResult | null>(null);
@@ -63,7 +65,7 @@ export function VisualSearch({ onNavigate }: VisualSearchProps) {
       formData.append("file", selectedFile);
 
       // First, identify the product
-      const response = await fetch("http://localhost:8002/predict/product", {
+      const response = await fetch(`${API_BASE_URL}/predict/product`, {
         method: "POST",
         body: formData,
       });
@@ -78,7 +80,7 @@ export function VisualSearch({ onNavigate }: VisualSearchProps) {
         // Get stock info for the identified product
         try {
           const stockResponse = await fetch(
-            `http://localhost:8002/stock/${data.product.product_name}`
+            `${API_BASE_URL}/stock/${data.product.product_name}`
           );
           if (stockResponse.ok) {
             const stockData = await stockResponse.json();
@@ -124,31 +126,33 @@ export function VisualSearch({ onNavigate }: VisualSearchProps) {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa]" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-      {/* Header */}
-      <header className="bg-white border-b border-[#e5e7eb] px-8 py-4 shadow-sm">
-        <div className="max-w-[1200px] mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => onNavigate("user_home")}
-              className="flex items-center gap-2 px-4 py-2 text-[13px] text-[#475569] hover:text-[#0f172a] hover:bg-[#f1f5f9] rounded-lg transition-colors border border-[#e5e7eb]"
-              style={{ fontWeight: 600 }}
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-            <div>
-              <h1 className="text-[24px] text-[#111827]" style={{ fontWeight: 800 }}>
-                Visual Search
-              </h1>
-              <p className="text-[13px] text-[#6b7280]">Upload a product image to find it in store</p>
+      {/* Steps Section - Similar to SmartCartSteps */}
+      <div className="bg-white border-b border-[#e5e7eb] py-6">
+        <div className="max-w-[900px] mx-auto px-8">
+          <div className="flex items-center justify-center gap-8">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-[#eff6ff] flex items-center justify-center">
+                <Upload className="w-6 h-6 text-[#3498db]" />
+              </div>
+              <p className="text-[14px] text-[#6b7280]">Upload a product photo</p>
+            </div>
+            <div className="w-8 h-[2px] bg-[#e5e7eb]"></div>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-[#eff6ff] flex items-center justify-center">
+                <Search className="w-6 h-6 text-[#3498db]" />
+              </div>
+              <p className="text-[14px] text-[#6b7280]">AI identifies the product</p>
+            </div>
+            <div className="w-8 h-[2px] bg-[#e5e7eb]"></div>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-[#eff6ff] flex items-center justify-center">
+                <MapPin className="w-6 h-6 text-[#3498db]" />
+              </div>
+              <p className="text-[14px] text-[#6b7280]">See location and availability</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-purple-100 px-4 py-2 rounded-lg">
-            <Camera className="w-5 h-5 text-purple-600" />
-            <span className="text-[13px] text-purple-700" style={{ fontWeight: 600 }}>AI-Powered</span>
-          </div>
         </div>
-      </header>
+      </div>
 
       <main className="max-w-[800px] mx-auto p-8">
         {/* Upload Section */}

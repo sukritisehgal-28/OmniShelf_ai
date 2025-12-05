@@ -1,7 +1,10 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { Navigation } from "./Navigation";
+import { ArrowLeft } from "lucide-react";
 
 export function UserShell() {
+  const navigate = useNavigate();
+  
   return (
     <div className="min-h-screen bg-[#f8f9fa]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       <Navigation showAdminCta={false} />
@@ -19,9 +22,14 @@ export function UserShell() {
               </div>
             </div>
           </div>
-          <div className="text-[12px] text-[#9ca3af] uppercase tracking-wide font-semibold">
-            Shopper
-          </div>
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 px-4 py-2 text-[13px] text-[#64748b] hover:text-[#2c3e50] hover:bg-[#f1f5f9] rounded-lg transition-colors"
+            style={{ fontWeight: 600 }}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Home
+          </button>
         </div>
       </div>
       <Outlet />

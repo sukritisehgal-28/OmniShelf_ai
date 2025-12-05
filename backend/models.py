@@ -20,6 +20,7 @@ class ProductDetection(Base):
     bbox_x2 = Column(Float, nullable=False)
     bbox_y2 = Column(Float, nullable=False)
     shelf_id = Column(String, index=True, nullable=True)
+    session_id = Column(String, index=True, nullable=True)  # Unique ID per save click
     timestamp = Column(DateTime, default=func.now(), nullable=False)
 
 

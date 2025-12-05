@@ -37,9 +37,6 @@ export function ModelPerformanceSection() {
       <div className="max-w-[1400px] mx-auto px-8">
         {/* Section Header */}
         <div className="text-center mb-16">
-          <div className="inline-block bg-[#3498db]/10 text-[#3498db] px-4 py-2 rounded-full mb-4 text-[13px]" style={{ fontWeight: 600 }}>
-            POWERED BY AI
-          </div>
           <h2 className="text-[42px] text-[#2c3e50] mb-4" style={{ fontWeight: 800 }}>
             State-of-the-Art Model Performance
           </h2>

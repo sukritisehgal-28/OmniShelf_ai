@@ -1,9 +1,21 @@
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { LandingPage } from "./components/LandingPage";
 import { UserShell } from "./components/UserShell";
 import { AdminHome } from "./components/AdminHome";
 import { SmartCartAssistant } from "./components/SmartCartAssistant";
 import { VisualSearch } from "./components/VisualSearch";
+
+// Scroll to top on route change
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  
+  return null;
+}
 
 const LandingPageWrapper = () => {
   const navigate = useNavigate();
@@ -38,6 +50,7 @@ const VisualSearchPage = () => {
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<LandingPageWrapper />} />
         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />

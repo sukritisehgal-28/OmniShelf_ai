@@ -14,7 +14,7 @@ export interface StockProduct {
   total_count: number;
   last_seen: string;
   shelf_breakdown: Record<string, number>;
-  stock_level: "LOW" | "MEDIUM" | "HIGH";
+  stock_level: "LOW" | "MEDIUM" | "HIGH" | "OUT";
   shelf_id: string;
   inventory_value: number;
 }
@@ -197,65 +197,117 @@ export async function fetchStockSummary(): Promise<StockProduct[]> {
 }
 
 export async function fetchStockByShelf(shelfId: string): Promise<StockProduct[]> {
-  const response = await fetch(`${API_BASE_URL}/stock/shelf/${shelfId}`);
+  // Backend uses /shelf/{shelfId} which returns ShelfSummary format
+  const response = await fetch(`${API_BASE_URL}/shelf/${shelfId}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch stock for shelf ${shelfId}: ${response.statusText}`);
   }
   const data = await response.json();
-  return (data?.products || []) as StockProduct[];
+  // Transform ShelfSummary.products to StockProduct format
+  return (data?.products || []).map((p: any) => ({
+    product_name: p.product_name,
+    display_name: p.product_name,
+    category: "Unknown",
+    price: 0,
+    total_count: p.total_count,
+    last_seen: p.last_seen,
+    shelf_breakdown: {},
+    stock_level: p.total_count > 10 ? "HIGH" : p.total_count > 5 ? "MEDIUM" : "LOW",
+    shelf_id: shelfId,
+    inventory_value: 0,
+  })) as StockProduct[];
 }
 
 export async function fetchStockByProduct(productName: string): Promise<StockProduct | null> {
-  const response = await fetch(`${API_BASE_URL}/stock/product/${productName}`);
+  // Backend uses /stock/{product_name} which returns stock info directly
+  const response = await fetch(`${API_BASE_URL}/stock/${encodeURIComponent(productName)}`);
   if (!response.ok) {
     if (response.status === 404) return null;
     throw new Error(`Failed to fetch product ${productName}: ${response.statusText}`);
   }
-  return (await response.json()) as StockProduct;
+  const data = await response.json();
+  // Transform to StockProduct format
+  return {
+    product_name: data.product_name || productName,
+    display_name: data.product_name || productName,
+    category: "Unknown",
+    price: 0,
+    total_count: data.total_count || 0,
+    last_seen: data.last_seen || "",
+    shelf_breakdown: {},
+    stock_level: data.stock_level || "LOW",
+    shelf_id: data.shelf_ids?.[0] || "",
+    inventory_value: 0,
+  } as StockProduct;
+}
+
+// ============================================================================
+// Recent Uploads API
+// ============================================================================
+
+export interface RecentUploadProduct {
+  grozi_code: string;
+  display_name: string;
+  category: string;
+  price: number;
+  quantity: number;
+}
+
+export interface RecentUploadSession {
+  id: number;
+  timestamp: string;
+  date: string;
+  time: string;
+  products: RecentUploadProduct[];
+  total_items: number;
+  total_value: number;
+  shelf_id: string;
+}
+
+export interface RecentUploadsResponse {
+  sessions: RecentUploadSession[];
+  total_sessions: number;
+}
+
+export async function fetchRecentUploads(): Promise<RecentUploadsResponse> {
+  const response = await fetch(`${API_BASE_URL}/inventory/recent-uploads`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch recent uploads: ${response.statusText}`);
+  }
+  return (await response.json()) as RecentUploadsResponse;
 }
 
 // ============================================================================
 // Detection API Endpoints
 // ============================================================================
 
-export async function fetchDetections(limit: number = 100): Promise<Detection[]> {
-  const response = await fetch(`${API_BASE_URL}/detections?limit=${limit}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch detections: ${response.statusText}`);
-  }
-  const data = await response.json();
-  return (data?.detections || []) as Detection[];
+export async function fetchDetections(_limit: number = 100): Promise<Detection[]> {
+  // Note: Backend only has POST /detections/ for creating, not GET for listing
+  // Return empty array for now - detections are stored but not queryable via GET
+  console.warn("fetchDetections: Backend does not expose GET /detections - returning empty array");
+  return [];
 }
 
 export async function fetchDetectionsByShelf(shelfId: string): Promise<Detection[]> {
-  const response = await fetch(`${API_BASE_URL}/detections/shelf/${shelfId}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch detections for shelf ${shelfId}: ${response.statusText}`);
-  }
-  const data = await response.json();
-  return (data?.detections || []) as Detection[];
+  // Note: Backend does not have GET /detections/shelf/{shelfId} endpoint
+  console.warn(`fetchDetectionsByShelf: Backend does not expose this endpoint - returning empty array for shelf ${shelfId}`);
+  return [];
 }
 
 // ============================================================================
 // Snapshot API Endpoints
 // ============================================================================
 
-export async function fetchSnapshots(limit: number = 50): Promise<Snapshot[]> {
-  const response = await fetch(`${API_BASE_URL}/snapshots?limit=${limit}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch snapshots: ${response.statusText}`);
-  }
-  const data = await response.json();
-  return (data?.snapshots || []) as Snapshot[];
+export async function fetchSnapshots(_limit: number = 50): Promise<Snapshot[]> {
+  // Note: Backend does not have GET /snapshots endpoint
+  console.warn("fetchSnapshots: Backend does not expose this endpoint - returning empty array");
+  return [];
 }
 
 export async function fetchLatestSnapshot(): Promise<Snapshot | null> {
-  const response = await fetch(`${API_BASE_URL}/snapshots/latest`);
-  if (!response.ok) {
-    if (response.status === 404) return null;
-    throw new Error(`Failed to fetch latest snapshot: ${response.statusText}`);
-  }
-  return (await response.json()) as Snapshot;
+  // Note: Backend does not have GET /snapshots/latest endpoint
+  console.warn("fetchLatestSnapshot: Backend does not expose this endpoint - returning null");
+  return null;
 }
 
 // ============================================================================
@@ -268,12 +320,13 @@ export async function fetchAlerts(resolved: boolean = false): Promise<Alert[]> {
     throw new Error(`Failed to fetch alerts: ${response.statusText}`);
   }
   const data = await response.json();
-  return (data?.alerts || []) as Alert[];
+  // Backend returns array directly, not wrapped in {alerts: []}
+  return Array.isArray(data) ? data : (data?.alerts || []) as Alert[];
 }
 
 export async function resolveAlert(alertId: number): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/alerts/${alertId}/resolve`, {
-    method: "POST",
+    method: "PUT",  // Backend uses PUT, not POST
   });
   if (!response.ok) {
     throw new Error(`Failed to resolve alert ${alertId}: ${response.statusText}`);

@@ -94,8 +94,8 @@ export function SmartCartAssistant({ onNavigate }: SmartCartAssistantProps) {
             onClick={() => setActiveTab("Visual Search")}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[15px] transition-all ${
               activeTab === "Visual Search"
-                ? "bg-purple-600 text-white shadow-lg"
-                : "bg-white text-[#64748b] border border-[#e5e7eb] hover:border-purple-500"
+                ? "bg-[#3498db] text-white shadow-lg"
+                : "bg-white text-[#64748b] border border-[#e5e7eb] hover:border-[#3498db]"
             }`}
             style={{ fontWeight: 600 }}
           >
